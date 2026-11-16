@@ -27,6 +27,10 @@ def parse_args():
     parser.add_argument("--epochs", type=int)
     parser.add_argument("--batch-size", type=int)
     parser.add_argument("--lr", type=float)
+    parser.add_argument("--augment", dest="augment", action="store_true", default=None,
+                        help="force-enable training augmentation")
+    parser.add_argument("--no-augment", dest="augment", action="store_false",
+                        help="disable training augmentation")
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     parser.add_argument("--num-classes", type=int, default=38)
     parser.add_argument("--num-workers", type=int)
@@ -68,7 +72,8 @@ def build_smoke_loaders(num_classes, image_size, batch_size, smoke_size, num_wor
     return train_loader, val_loader
 
 
-def build_real_loaders(config, split_dir, data_root, image_size, batch_size, num_workers):
+def build_real_loaders(config, split_dir, data_root, image_size, batch_size, num_workers,
+                       augment_override=None):
     split_dir = Path(split_dir)
     class_to_idx_path = split_dir / "class_to_idx.json"
     if not class_to_idx_path.exists():
@@ -81,7 +86,10 @@ def build_real_loaders(config, split_dir, data_root, image_size, batch_size, num
     if not train_csv.exists() or not val_csv.exists():
         sys.exit(f"Missing train.csv/val.csv in {split_dir}; use --smoke-size instead")
 
-    augment = bool(config["augmentation"]["enabled"])
+    if augment_override is None:
+        augment = bool(config["augmentation"]["enabled"])
+    else:
+        augment = augment_override
     train_ds = LeafDiseaseDataset(
         train_csv,
         project_root=data_root,
@@ -112,6 +120,20 @@ def main():
 
     generator = torch.Generator().manual_seed(seed)
 
+    if args.lr is not None:
+        lr = args.lr
+    elif args.model == "cnn":
+        lr = config["training"]["cnn_learning_rate"]
+    elif args.finetune_layer4:
+        lr = config["training"]["finetune_learning_rate"]
+    else:
+        lr = config["training"]["classifier_learning_rate"]
+
+    if args.augment is None:
+        augment = bool(config["augmentation"]["enabled"])
+    else:
+        augment = args.augment
+
     if args.smoke_size and args.smoke_size > 0:
         num_classes = args.num_classes
         class_names = [str(i) for i in range(num_classes)]
@@ -122,14 +144,12 @@ def main():
         mode = "smoke"
     else:
         train_loader, val_loader, class_to_idx = build_real_loaders(
-            config, args.split_dir, args.data_root, image_size, batch_size, num_workers
+            config, args.split_dir, args.data_root, image_size, batch_size, num_workers, augment
         )
         idx_to_name = {v: k for k, v in class_to_idx.items()}
         num_classes = len(class_to_idx)
         class_names = [idx_to_name[i] for i in range(num_classes)]
         mode = "real"
-
-    lr = args.lr if args.lr is not None else config["training"]["classifier_learning_rate"]
 
     model = build_model(args.model, num_classes, args.freeze, args.finetune_layer4, args.pretrained)
 
@@ -141,6 +161,7 @@ def main():
     print(f"train samples: {len(train_loader.dataset)}")
     print(f"val samples: {len(val_loader.dataset)}")
     print(f"batch_size: {batch_size}, epochs: {epochs}, lr: {lr}")
+    print(f"augmentation: {augment}")
     if args.model == "resnet18":
         print(f"freeze: {args.freeze}, finetune_layer4: {args.finetune_layer4}, pretrained: {args.pretrained}")
 
