@@ -49,3 +49,18 @@ PlantVillage 数据审计、划分、Dataset/DataLoader/transforms、PlantDoc �
 ```
 
 正文模板已放在 `.github/PULL_REQUEST_TEMPLATE.md`，GitHub 会自动填充到 PR 描述框；按模块归属、变更文件、测试结果、未解决问题和检查清单逐项填写，不能留空（“无”也要写出来）。
+
+## PR 合并操作（网页端）
+1. 确认 PR 目标分支正确：feature 分支的 PR 目标是 `develop`，不是 `main`。
+2. 确认 CI 通过：`test (3.11/3.12/3.13)` 三个版本全绿。
+3. 点 **Merge pull request**，保持默认的 **Create a merge commit**（不选 squash）。
+4. 合并后点 **Delete branch** 删除已合并的 feature 分支。
+5. 多余的 PR（目标分支或标题错误）直接 **Close pull request**，不要合并。
+
+## 分支保护（一次性设置）
+在 GitHub Settings → Branches 对 `main` 和 `develop` 各加一条规则：
+- Require a pull request before merging
+- Require status checks to pass（勾选 `test`）
+
+## 仓库权限
+A、B 双方都需有 Write 权限才能推送分支和开 PR。仓库 Owner（当前为 A）在 Settings → Collaborators → Add people 添加 B 的 GitHub 账号即可。
