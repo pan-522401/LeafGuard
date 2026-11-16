@@ -20,6 +20,25 @@
 |---|---|---|---|---|---|---|---|---|
 | | | | | | | | | |
 
+## 训练命令（等 B 的 splits 到位后使用）
+`--lr` 缺省时按模型自动选：CNN 用 `cnn_learning_rate`，ResNet18 微调用 `finetune_learning_rate`，冻结用 `classifier_learning_rate`。增强默认取配置，可用 `--augment/--no-augment` 覆盖。
+
+```powershell
+# E1 SmallCNN 基线（无增强）
+python scripts/train.py --model cnn --no-augment --output-dir results/e1
+
+# E2 ResNet18 冻结 backbone（无增强）
+python scripts/train.py --model resnet18 --freeze --pretrained --no-augment --output-dir results/e2
+
+# E3 ResNet18 微调 layer4（无增强）
+python scripts/train.py --model resnet18 --finetune-layer4 --pretrained --no-augment --output-dir results/e3
+
+# E4 ResNet18 微调 layer4 + 轻量增强
+python scripts/train.py --model resnet18 --finetune-layer4 --pretrained --augment --output-dir results/e4
+```
+
+说明：真实数据模式下会读取 `splits/train.csv`、`splits/val.csv` 和 `splits/class_to_idx.json`；`--pretrained` 首次联网下载 ImageNet 权重。
+
 ## 指标
 Accuracy、Macro-F1、Macro Recall、混淆矩阵、训练时长。
 
