@@ -74,6 +74,30 @@
 - 引用真实存在的论文/仓库，不伪造 DOI、作者、链接。
 - 借鉴代码需在提交中说明来源。
 
-## 11. 后续维护
-- 新增参考项目时更新第 4、6 节。
+## 11. 参考文献与复现方案
+本项目采用「现代化复现」：以高被引论文为锚点复现其结论，再用 ResNet18 做现代实现，并加入自己的对比与域外评估。所有数字以本项目真实运行为准。
+
+### 11.1 参考文献（Crossref 核实，含 DOI）
+| 论文 | 年 | 出处 | DOI | 作用 |
+|---|---|---|---|---|
+| Mohanty, Hughes, Salathé. Using Deep Learning for Image-Based Plant Disease Detection | 2016 | Frontiers in Plant Science | 10.3389/fpls.2016.01419 | 复现锚点（PlantVillage 高准确率） |
+| Ferentinos. Deep learning models for plant disease detection and diagnosis | 2018 | Computers and Electronics in Agriculture | 10.1016/j.compag.2018.01.009 | CNN 模型对比参考 |
+| Too, Yujian, Njuki. A comparative study of fine-tuning deep learning models for plant disease identification | 2019 | Computers and Electronics in Agriculture | 10.1016/j.compag.2018.03.032 | 微调对比（对应 E1–E4） |
+| He et al. Deep Residual Learning for Image Recognition | 2016 | CVPR | 10.1109/cvpr.2016.90 | ResNet18 backbone 出处 |
+
+> 作者名、卷期页以论文原文为准；使用前再次核实。
+
+### 11.2 复现策略
+- 现代实现：用 ResNet18（torchvision 预训练）替代论文中的 AlexNet/GoogLeNet，复现「ImageNet 预训练 + 微调在 PlantVillage 上显著优于从零训练」的结论。
+- E1–E4 对齐 Too 2019 的微调对比思路（详见 `docs/model_notes.md`）。
+- 域外评估（PlantDoc）：作为候选扩展点，实验完成后再评判是否作为主要贡献。
+- 数字口径：与 Mohanty 2016 对比时，说明划分/预处理/网络差异，避免直接对标数值。
+
+### 11.3 合规
+- 明确标注「复现自 Mohanty 2016（DOI）」，参考文献必须真实存在，不伪造。
+- 不把论文报告的数字当作本项目结果。
+- 复现与自研部分在报告中分开描述。
+
+## 12. 后续维护
+- 新增参考项目时更新第 4、6 节；新增论文时更新第 11.1 节。
 - 调研日期、检索词一并记录，保证可复现。
