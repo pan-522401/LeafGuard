@@ -9,6 +9,8 @@ results/*
 !results/.gitkeep
 splits/*
 !splits/.gitkeep
+!splits/*.csv
+!splits/class_to_idx.json
 *.pth
 *.pt
 *.ckpt

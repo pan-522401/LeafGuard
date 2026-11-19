@@ -7,7 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.data.scan import scan_dataset
-from src.data.split import (
+from src.data.splits import (
     DEFAULT_RATIOS,
     build_stratified_splits,
     check_disjoint,

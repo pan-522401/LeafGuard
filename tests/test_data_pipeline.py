@@ -7,7 +7,7 @@ import pytest
 Image = pytest.importorskip("PIL.Image")
 
 from src.data.scan import scan_dataset
-from src.data.split import (
+from src.data.splits import (
     _allocate,
     build_stratified_splits,
     check_disjoint,
@@ -141,3 +141,44 @@ def test_scan_and_split_end_to_end(tmp_path):
 
     total = sum(len(splits[name]) for name in ("train", "val", "test"))
     assert total == 13
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_committed_split_manifests_follow_contract():
+    split_dir = REPO_ROOT / "splits"
+    mapping_path = split_dir / "class_to_idx.json"
+    if not mapping_path.is_file():
+        pytest.skip("splits not generated yet")
+
+    class_to_idx = json.loads(mapping_path.read_text(encoding="utf-8"))
+    assert class_to_idx == dict(sorted(class_to_idx.items()))
+    assert len(set(class_to_idx.values())) == len(class_to_idx)
+
+    all_paths = set()
+    counts = {}
+    classes_seen = {}
+    for name in ("train", "val", "test"):
+        manifest = split_dir / f"{name}.csv"
+        assert manifest.is_file()
+        with open(manifest, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            assert reader.fieldnames == ["path", "label", "class_name"]
+            rows = list(reader)
+        counts[name] = len(rows)
+        assert rows
+        for row in rows:
+            assert not Path(row["path"]).is_absolute()
+            assert row["class_name"] in class_to_idx
+            assert int(row["label"]) == class_to_idx[row["class_name"]]
+            assert row["path"] not in all_paths, "same image crosses splits"
+            all_paths.add(row["path"])
+            classes_seen.setdefault(name, set()).add(row["class_name"])
+
+    total = sum(counts.values())
+    assert abs(counts["train"] / total - 0.70) < 0.01
+    assert abs(counts["val"] / total - 0.15) < 0.01
+    assert abs(counts["test"] / total - 0.15) < 0.01
+    assert classes_seen["train"] == set(class_to_idx)
+    assert classes_seen["val"] == set(class_to_idx)
+    assert classes_seen["test"] == set(class_to_idx)

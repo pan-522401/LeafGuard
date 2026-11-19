@@ -61,7 +61,7 @@
 
 ```powershell
 python scripts/scan_dataset.py --hash-duplicates
-python scripts/split_dataset.py --seed 42
+python scripts/build_splits.py --seed 42
 ```
 
 - 扫描报告：`results/data_scan.json`（Git 忽略）
