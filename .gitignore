@@ -14,3 +14,4 @@ splits/*
 *.pth
 *.pt
 *.ckpt
+*.docx
