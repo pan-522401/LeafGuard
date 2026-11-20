@@ -7,13 +7,15 @@
 - ResNet18：torchvision ImageNet 权重，替换 `fc`；支持冻结 backbone 与解冻 layer4 微调。
 
 ## 实验计划
-| 实验 | 模型/策略 | 用途 |
-|---|---|---|
-| E1 | SmallCNN 从零训练 | 基线 |
-| E2 | ResNet18 冻结 backbone | 迁移学习基线 |
-| E3 | ResNet18 微调 layer4 | 评估微调价值 |
-| E4 | ResNet18 + 轻量增强 | 评估增强影响 |
-| E5（可选） | PlantDoc 共同类别外部评估 | 域泛化 |
+采用「现代化复现」：以 Mohanty 2016（PlantVillage 高准确率）为锚点，用 ResNet18 复现迁移学习结论；微调对比参考 Too 2019。参考文献与 DOI 见 `docs/RELATED_WORK.md` 第 11 节。
+
+| 实验 | 模型/策略 | 用途 | 参考 |
+|---|---|---|---|
+| E1 | SmallCNN 从零训练 | 基线 | Too 2019（从零 vs 预训练对比） |
+| E2 | ResNet18 冻结 backbone | 迁移学习基线 | Mohanty 2016 / Too 2019 |
+| E3 | ResNet18 微调 layer4 | 评估微调价值 | Too 2019（微调对比） |
+| E4 | ResNet18 + 轻量增强 | 评估增强影响 | Ferentinos 2018 / 常规增强做法 |
+| E5（候选） | PlantDoc 共同类别外部评估 | 域泛化 | 候选贡献点，实验做完再评判 |
 
 ## 实验记录（实际运行后填写）
 | 实验 | 模型 | 增强 | Seed | Epoch | Val Macro-F1 | Test Macro-F1 | 训练时长 | 备注 |
