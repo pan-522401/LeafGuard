@@ -73,3 +73,20 @@ python scripts/build_plantdoc_eval.py
 
 - `splits/plantdoc_eval.csv`
 - `results/plantdoc_eval_report.json`（Git 忽略）
+
+## 外部评估运行方式（需要 A 的 checkpoint）
+
+```powershell
+python scripts/evaluate_external.py --checkpoint results/checkpoints/<model>.pth
+```
+
+输出：
+
+- `results/metrics/external_metrics.json`：Accuracy、Macro-F1、Macro Recall、混淆矩阵、各类别指标
+- `results/metrics/external_predictions.csv`：逐图真实/预测类别、置信度、Top-3
+
+说明：
+
+- Macro-F1 / Macro Recall 只在 PlantDoc 实际覆盖的 27 个类别上计算；预测到其余 11 类会作为错误计入 Accuracy。
+- 置信度为 softmax 分数，不是校准后的诊断概率。
+- 外部数据不参与训练或调参；指标必须由真实 checkpoint 运行得到，不能提前填写。
