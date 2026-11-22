@@ -6,11 +6,12 @@
 - 图片总数：54305
 - 类别总数：38
 - 损坏图片数：0
-- 重复文件数：21（类内完全重复副本；跨类重复 0 组）
+- 重复文件数：21（类内完全重复副本；跨类完全重复 0 组）
+- 近重复图片：226 组 / 481 张（64-bit dHash，Hamming ≤ 4；跨类组 33 组仅记录、不合并）
 - 类别映射文件：`splits/class_to_idx.json`
-- train/val/test 比例与样本数：70/15/15 → 37996 / 8144 / 8144（去除 21 个重复副本后，可用图片 54284）
-- 跨 split 重复检查：train/val、train/test、val/test 交集均为 0
-- 排除样本及原因：21 个类内完全重复副本（SHA-256 相同，保留每类字典序第一个）；无损坏图片
+- train/val/test 比例与样本数：70.0/15.0/15.0 → 37978 / 8155 / 8151（去除 21 个完全重复副本后，可用图片 54284）
+- 跨 split 重复检查：完全重复图片跨 split 0；近重复组跨 split 0（旧图片级划分为 109 组 / 232 张）
+- 排除样本及原因：21 个类内完全重复副本（SHA-256 相同，保留每类字典序第一个）；无损坏图片；近重复图片保留，但整组进入同一 split
 - 引用：Mohanty, Hughes, Salathé (2016), *Using deep learning for image-based plant disease detection*, Frontiers in Plant Science, DOI 10.3389/fpls.2016.01419
 - 许可说明：上游 GitHub 仓库未声明 License（API 返回 `license: null`），使用与再分发前需与项目要求核对
 
@@ -57,14 +58,29 @@
 | Tomato___Tomato_mosaic_virus | 373 |
 | Tomato___Tomato_Yellow_Leaf_Curl_Virus | 5357 |
 
+## 近重复与分组划分
+
+> 当前 `splits/` 为分组划分；早期图片级划分已废弃，A 必须使用当前版本；若已按旧划分训练需重训。
+
+- 方法：每张图计算 64-bit dHash，Hamming 距离 ≤ 4 视为近重复；完全重复副本先用 SHA-256 去除
+- 近重复组：226 组 / 481 张，最大组 6 张
+- 跨类近重复组：33 组，**只记录不合并**（避免把不同病害强行绑在一起；可能含 dHash 误报）
+- 划分方式：按类别分层，但**整组进入同一 split**；组内分配确定性
+- `scripts/build_splits.py` 默认启用近重复分组；`--no-near-duplicates` 可退回图片级划分
+- 结果：旧图片级划分有 109 组 / 232 张近重复图跨 split；新划分 **0 组**
+- 类别比例最大偏差 0.3%；38 类在 train/val/test 均覆盖
+
 ## 复现命令
 
 ```powershell
 python scripts/scan_dataset.py --hash-duplicates
+python scripts/analyze_near_duplicates.py --max-distance 4
 python scripts/build_splits.py --seed 42
 ```
 
 - 扫描报告：`results/data_scan.json`（Git 忽略）
+- 近重复分析：`results/near_duplicates.json`（Git 忽略）
+- 分组划分报告：`results/grouped_splits_report.json`（Git 忽略）
 - 划分结果：`splits/train.csv`、`splits/val.csv`、`splits/test.csv`、`splits/class_to_idx.json`（已提交）
 
 ## PlantDoc 外部评估集审计
