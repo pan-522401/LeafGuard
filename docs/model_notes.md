@@ -33,6 +33,22 @@
 - E4 增强相比 E3 无提升（Test 0.9940 < 0.9957），本数据/预算下增强收益不明显。
 - 混淆矩阵与曲线见 `results/figures/`（`e*_confusion.png`、`e*_curves.png`、`summary.json`）。
 
+## 训练协议与公平性说明
+- 早停：以验证集 Macro-F1 为准则，`patience=5`，上限 25 epoch；取验证 Macro-F1 最佳的 checkpoint。
+- 学习率按方法设定：SmallCNN 1e-3；ResNet18 冻结分类头 1e-3；微调 layer4 1e-4（见 `configs/experiment.yaml`）。
+- 数据划分 leaf-aware 70/15/15，seed=42；**测试集仅用于最终评估**，不参与训练、早停与模型选择。
+- 公平性：E1–E4 使用同一早停规则与同一划分；以**独立测试集** Macro-F1 为主、验证集为辅（验证集因参与选模略偏乐观）。
+- 早停均发生在验证指标平台期后，并非无理截断：
+
+| 实验 | 轮数 | 最佳 val@轮 | 最佳后 val 走势 |
+|---|---|---|---|
+| E1 | 25（跑满） | 0.9884@23 | 仍在 ~0.98 波动，未触发早停 |
+| E2 | 12（早停） | 0.9526@7 | 之后 ~0.950±0.001，平台 |
+| E3 | 12（早停） | 0.9956@7 | 峰值后回落，近上限 |
+| E4 | 21（早停） | 0.9958@16 | ~0.995 平台 |
+
+- 局限：单 seed(42)，无误差棒；如需更严谨，可补 3 seed 均值±std，或关早停统一固定 25 轮做对照。
+
 ## 训练命令（splits 已就绪）
 `--lr` 缺省时按模型自动选：CNN 用 `cnn_learning_rate`，ResNet18 微调用 `finetune_learning_rate`，冻结用 `classifier_learning_rate`。增强默认取配置，可用 `--augment/--no-augment` 覆盖。
 
