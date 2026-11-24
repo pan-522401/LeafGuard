@@ -86,14 +86,15 @@ python scripts/build_splits.py --seed 42
 ## PlantDoc 外部评估集审计
 
 - 来源版本：`pratikkayal/PlantDoc-Dataset` `master` @ `5467f6012d78d1c446145d5f582da6096f852ae8`
-- 获取日期：2026-11-20
-- 使用划分：仅 `test`
-- 类别数：27
-- 图片数：236
+- 获取日期：2026-11-20（test）、2026-11-24（train）
+- 使用划分：`train` + `test`
+- 类别数：28
+- 图片数：2,572（test 236 + train 2,336）
+- 健康叶：10 类 / 847 张；病害叶：18 类 / 1,725 张
 - 损坏图片：0
-- 重复图片：0
-- 文件名处理：5 个含 `?` 的文件已重命名（`?` → `_`），详见 `docs/plantdoc_mapping.md`
-- 类别映射：`splits/plantdoc_class_map.json`（27/27 类可映射到 PlantVillage 38 类）
+- 类内重复：0；跨类完全相同图片 1 组（保留并记录）
+- 文件名处理：82 个 train + 5 个 test 含 `?` 的文件已重命名；7 个过长 train 文件名已缩短
+- 类别映射：`splits/plantdoc_class_map.json`（28/28 类可映射到 PlantVillage 38 类）
 - 外部评估清单：`splits/plantdoc_eval.csv`
 - 用途限制：仅外部评估，不参与训练或调参
 
@@ -101,5 +102,6 @@ python scripts/build_splits.py --seed 42
 
 ```powershell
 python scripts/scan_dataset.py --data-root data/plantdoc
+python scripts/scan_dataset.py --data-root data/plantdoc_train
 python scripts/build_plantdoc_eval.py
 ```

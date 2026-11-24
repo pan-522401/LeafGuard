@@ -1,5 +1,5 @@
 {
-  "source_dataset": "PlantDoc Cropped-PlantDoc (test split)",
+  "source_dataset": "PlantDoc Cropped-PlantDoc (train + test splits)",
   "target_dataset": "PlantVillage (38 classes)",
   "mapping": {
     "Apple Scab Leaf": "Apple___Apple_scab",
@@ -28,14 +28,16 @@
     "Tomato leaf mosaic virus": "Tomato___Tomato_mosaic_virus",
     "Tomato leaf yellow virus": "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
     "Tomato mold leaf": "Tomato___Leaf_Mold",
+    "Tomato two spotted spider mites leaf": "Tomato___Spider_mites Two-spotted_spider_mite",
     "Tomato Septoria leaf spot": "Tomato___Septoria_leaf_spot"
   },
   "unmapped": {},
   "notes": [
     "Mapping is based on class names plus manual spot-checks of representative images.",
     "Healthy PlantDoc classes are inferred from names and visual absence of disease; no per-image re-annotation was performed.",
-    "Only the PlantDoc test split is used as external evaluation data; it is never used for training or hyperparameter tuning.",
-    "Five PlantDoc filenames containing '?' were renamed (replaced with '_') because '?' is invalid on Windows.",
+    "PlantDoc train and test splits are both used as external evaluation data; they are never used for training or hyperparameter tuning.",
+    "82 train and 5 test filenames containing '?' were renamed (replaced with '_') because '?' is invalid on Windows.",
+    "Seven very long train filenames were shortened to avoid Windows path-length limits.",
     "PlantDoc images include web/stock photos and differ in background and quality from PlantVillage."
   ]
 }

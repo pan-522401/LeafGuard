@@ -115,6 +115,6 @@ def test_committed_plantdoc_manifest_contract():
     assert rows
     for row in rows:
         assert not Path(row["path"]).is_absolute()
-        assert row["path"].startswith("data/plantdoc/")
+        assert row["path"].startswith(("data/plantdoc/", "data/plantdoc_train/"))
         assert row["class_name"] in class_to_idx
         assert int(row["label"]) == class_to_idx[row["class_name"]]
