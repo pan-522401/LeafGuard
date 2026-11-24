@@ -40,12 +40,13 @@ def iter_image_files(class_dir, extensions=IMAGE_EXTENSIONS):
     )
 
 
-def is_readable_image(path):
+def is_readable_image(path, deep=True):
     try:
         with Image.open(path) as im:
             im.verify()
-        with Image.open(path) as im:
-            im.load()
+        if deep:
+            with Image.open(path) as im:
+                im.load()
         return True
     except (UnidentifiedImageError, OSError, ValueError):
         return False
@@ -65,6 +66,7 @@ def scan_dataset(
     extensions=IMAGE_EXTENSIONS,
     hash_duplicates=False,
     include_images=False,
+    deep=True,
 ):
     project_root = Path(project_root).resolve()
     data_root = _resolve(data_root, project_root)
@@ -80,7 +82,7 @@ def scan_dataset(
         class_counts[class_dir.name] = 0
         for file_path in files:
             rel_path = _relpath(file_path, project_root)
-            if not is_readable_image(file_path):
+            if not is_readable_image(file_path, deep=deep):
                 damaged.append(rel_path)
                 continue
             class_counts[class_dir.name] += 1
