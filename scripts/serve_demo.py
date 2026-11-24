@@ -29,6 +29,7 @@ STATE = {
     "idx_to_class": None,
     "num_classes": None,
     "model_name": None,
+    "zh": None,
     "lock": threading.Lock(),
 }
 
@@ -54,6 +55,7 @@ INDEX_HTML = """<!doctype html>
   .result { margin-top: 22px; display:none; }
   .pred { font-size: 20px; font-weight: 700; }
   .pred .tag { color: var(--accent); }
+  .pred .en { color: var(--muted); font-size: 13px; font-weight: 400; }
   .bar-row { margin: 10px 0; }
   .bar-label { display:flex; justify-content:space-between; font-size: 13px; margin-bottom: 4px; }
   .bar-track { background:#0b1220; border-radius: 8px; height: 14px; overflow:hidden; }
@@ -75,7 +77,7 @@ INDEX_HTML = """<!doctype html>
     </label>
     <div class="status" id="status"></div>
     <div class="result" id="result">
-      <div class="pred">预测：<span class="tag" id="predName">-</span></div>
+      <div class="pred">预测：<span class="tag" id="predName">-</span> <span class="en" id="predEn"></span></div>
       <div id="bars"></div>
       <div class="note">分数为 softmax 置信度，不代表校准后的诊断概率；本项目为课程/研究演示，不能作为真实农业诊断依据。</div>
     </div>
@@ -114,12 +116,15 @@ function handleFile(file) {
 
 function render(data) {
   predName.textContent = data.prediction;
+  var predEn = document.getElementById('predEn');
+  predEn.textContent = data.prediction_en ? '(' + data.prediction_en + ')' : '';
   bars.innerHTML = '';
   data.top_k.forEach(item => {
     const pct = (item.score * 100);
+    var label = item.class_name_zh || item.class_name;
     const row = document.createElement('div');
     row.className = 'bar-row';
-    row.innerHTML = '<div class="bar-label"><span>' + item.class_name +
+    row.innerHTML = '<div class="bar-label"><span>' + label +
       '</span><span>' + pct.toFixed(1) + '%</span></div>' +
       '<div class="bar-track"><div class="bar-fill"></div></div>';
     bars.appendChild(row);
@@ -137,7 +142,7 @@ drop.addEventListener('drop', e => { if (e.dataTransfer.files.length) handleFile
 """
 
 
-def setup(checkpoint, classes, device_arg):
+def setup(checkpoint, classes, device_arg, zh_map_path="splits/class_to_zh.json"):
     device = resolve_device(device_arg)
     ckpt = load_checkpoint(checkpoint, device)
     if "model_name" not in ckpt:
@@ -151,6 +156,12 @@ def setup(checkpoint, classes, device_arg):
     model.load_state_dict(strip_module_prefix(state_dict))
     model.to(device).eval()
 
+    zh = {}
+    zh_path = Path(zh_map_path)
+    if zh_path.is_file():
+        with open(zh_path, encoding="utf-8") as f:
+            zh = json.load(f)
+
     STATE.update(
         model=model,
         transform=build_transforms(int(ckpt.get("input_size", 224)), train=False, augment=False),
@@ -158,6 +169,7 @@ def setup(checkpoint, classes, device_arg):
         idx_to_class={int(v): k for k, v in class_to_idx.items()},
         num_classes=num_classes,
         model_name=ckpt["model_name"],
+        zh=zh,
     )
 
 
@@ -169,12 +181,19 @@ def predict_pil(image):
             probs = torch.softmax(logits, dim=1)[0]
         k = min(5, STATE["num_classes"])
         scores, indices = probs.topk(k)
-    top = [
-        {"class_name": STATE["idx_to_class"][int(i)], "label": int(i), "score": float(s)}
-        for s, i in zip(scores.tolist(), indices.tolist())
-    ]
+    zh = STATE.get("zh") or {}
+    top = []
+    for s, i in zip(scores.tolist(), indices.tolist()):
+        en = STATE["idx_to_class"][int(i)]
+        top.append({
+            "class_name": en,
+            "class_name_zh": zh.get(en, en),
+            "label": int(i),
+            "score": float(s),
+        })
     return {
-        "prediction": top[0]["class_name"],
+        "prediction": top[0]["class_name_zh"],
+        "prediction_en": top[0]["class_name"],
         "model_name": STATE["model_name"],
         "top_k": top,
         "note": "scores are softmax, not calibrated diagnostic probabilities",
@@ -228,6 +247,7 @@ def main():
     parser = argparse.ArgumentParser(description="LeafGuard local web demo (zero dependency)")
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--classes", default="splits/class_to_idx.json")
+    parser.add_argument("--zh-map", default="splits/class_to_zh.json")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
@@ -236,7 +256,7 @@ def main():
     checkpoint = Path(args.checkpoint)
     if not checkpoint.is_file():
         raise SystemExit(f"checkpoint not found: {checkpoint}")
-    setup(checkpoint, args.classes, args.device)
+    setup(checkpoint, args.classes, args.device, args.zh_map)
 
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"LeafGuard demo running: http://{args.host}:{args.port}")

@@ -13,6 +13,7 @@ python scripts/serve_demo.py --checkpoint results/seed42/e3/checkpoints/resnet18
 然后浏览器打开 `http://127.0.0.1:8011/`，把叶子图片拖进去，即可看到预测类别与 Top-5 置信度条形图。
 
 - `--device auto|cpu|cuda`：推理设备；`--port`：端口
+- 类别默认以中文显示（中英对照见 `splits/class_to_zh.json`，可用 `--zh-map` 指定其它映射）
 - 分数为 softmax 值，不是校准后的诊断概率；仅用于演示
 
 ## 1. 单图预测
