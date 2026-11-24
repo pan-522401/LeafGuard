@@ -30,6 +30,8 @@ STATE = {
     "num_classes": None,
     "model_name": None,
     "zh": None,
+    "crops": None,
+    "crop_diseases": None,
     "lock": threading.Lock(),
 }
 
@@ -62,12 +64,25 @@ INDEX_HTML = """<!doctype html>
   .bar-fill { height:100%; background: linear-gradient(90deg,#16a34a,#22c55e); width:0; transition: width .5s ease; }
   .note { color: var(--muted); font-size: 12px; margin-top: 18px; }
   .status { color: var(--muted); font-size: 13px; margin-top: 12px; min-height: 18px; }
+  .supported { background: var(--card); border-radius: 14px; padding: 16px 20px; margin-bottom: 18px; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+  .sup-title { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { background:#0b1220; color:var(--text); border:1px solid #334155; border-radius:999px; padding:4px 12px; font-size:13px; }
+  .fulllist { margin-top:12px; color:var(--muted); font-size:13px; }
+  .fulllist summary { cursor:pointer; color:var(--accent); }
+  .grp { margin:6px 0; line-height:1.7; }
+  .grp-crop { color:var(--text); font-weight:600; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>🌿 LeafGuard · 叶片病害识别</h1>
   <div class="sub">上传一张植物叶片照片，识别它是否患病及可能的病害类别（本页为本地演示，结果仅供参考）。</div>
+  <div class="supported">
+    <div class="sup-title">✅ 能识别的植物（{{CROPS_N}} 种）· 共 38 类（含健康与病害）</div>
+    <div class="chips">{{CROPS}}</div>
+    <details class="fulllist"><summary>查看每种植物能识别哪些病害/健康类别</summary>{{DISEASE_GROUPS}}</details>
+  </div>
   <div class="card">
     <label class="drop" id="drop">
       <div>点击选择，或把图片拖到这里</div>
@@ -162,6 +177,16 @@ def setup(checkpoint, classes, device_arg, zh_map_path="splits/class_to_zh.json"
         with open(zh_path, encoding="utf-8") as f:
             zh = json.load(f)
 
+    crops = []
+    crop_diseases = {}
+    for name, idx in sorted(class_to_idx.items(), key=lambda kv: int(kv[1])):
+        full = zh.get(name, name)
+        crop, sep, disease = full.partition("-")
+        if crop not in crop_diseases:
+            crop_diseases[crop] = []
+            crops.append(crop)
+        crop_diseases[crop].append(disease if sep else full)
+
     STATE.update(
         model=model,
         transform=build_transforms(int(ckpt.get("input_size", 224)), train=False, augment=False),
@@ -170,6 +195,8 @@ def setup(checkpoint, classes, device_arg, zh_map_path="splits/class_to_zh.json"
         num_classes=num_classes,
         model_name=ckpt["model_name"],
         zh=zh,
+        crops=crops,
+        crop_diseases=crop_diseases,
     )
 
 
@@ -212,7 +239,21 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path in ("/", "/index.html"):
-            self._send(200, INDEX_HTML, "text/html")
+            crops = STATE.get("crops") or []
+            crop_diseases = STATE.get("crop_diseases") or {}
+            chips = "".join('<span class="chip">{}</span>'.format(c) for c in crops)
+            groups = "".join(
+                '<div class="grp"><span class="grp-crop">{}</span>：{}</div>'.format(
+                    c, "、".join(crop_diseases.get(c, []))
+                )
+                for c in crops
+            )
+            page = (
+                INDEX_HTML.replace("{{CROPS_N}}", str(len(crops)))
+                .replace("{{CROPS}}", chips)
+                .replace("{{DISEASE_GROUPS}}", groups)
+            )
+            self._send(200, page, "text/html")
         elif self.path == "/health":
             self._send(200, "ok", "text/plain")
         else:
