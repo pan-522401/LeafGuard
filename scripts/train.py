@@ -100,8 +100,11 @@ def build_real_loaders(config, split_dir, data_root, image_size, batch_size, num
         project_root=data_root,
         transform=build_transforms(image_size, train=False, augment=False),
     )
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    persistent = num_workers > 0
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers,
+                              persistent_workers=persistent)
+    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers,
+                            persistent_workers=persistent)
     return train_loader, val_loader, class_to_idx
 
 
