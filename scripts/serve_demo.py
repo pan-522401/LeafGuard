@@ -32,6 +32,8 @@ STATE = {
     "zh": None,
     "crops": None,
     "crop_diseases": None,
+    "msp_threshold": None,
+    "energy_threshold": None,
     "lock": threading.Lock(),
 }
 
@@ -63,6 +65,7 @@ INDEX_HTML = """<!doctype html>
   .bar-track { background:#0b1220; border-radius: 8px; height: 14px; overflow:hidden; }
   .bar-fill { height:100%; background: linear-gradient(90deg,#16a34a,#22c55e); width:0; transition: width .5s ease; }
   .note { color: var(--muted); font-size: 12px; margin-top: 18px; }
+  .reject { background: rgba(245,158,11,.12); border:1px solid #f59e0b; color:#fbbf24; border-radius:10px; padding:12px 14px; font-size:14px; line-height:1.6; margin:8px 0; }
   .status { color: var(--muted); font-size: 13px; margin-top: 12px; min-height: 18px; }
   .supported { background: var(--card); border-radius: 14px; padding: 16px 20px; margin-bottom: 18px; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
   .sup-title { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
@@ -93,6 +96,7 @@ INDEX_HTML = """<!doctype html>
     <div class="status" id="status"></div>
     <div class="result" id="result">
       <div class="pred">预测：<span class="tag" id="predName">-</span> <span class="en" id="predEn"></span></div>
+      <div class="reject" id="rejected" style="display:none"></div>
       <div id="bars"></div>
       <div class="note">分数为 softmax 置信度，不代表校准后的诊断概率；本项目为课程/研究演示，不能作为真实农业诊断依据。</div>
     </div>
@@ -130,8 +134,18 @@ function handleFile(file) {
 }
 
 function render(data) {
-  predName.textContent = data.prediction;
   var predEn = document.getElementById('predEn');
+  var rej = document.getElementById('rejected');
+  if (data.rejected) {
+    predName.textContent = '无法可靠识别';
+    predEn.textContent = '';
+    bars.innerHTML = '';
+    rej.textContent = data.message || '识别不确定，建议人工确诊。';
+    rej.style.display = 'block';
+    return;
+  }
+  rej.style.display = 'none';
+  predName.textContent = data.prediction;
   predEn.textContent = data.prediction_en ? '(' + data.prediction_en + ')' : '';
   bars.innerHTML = '';
   data.top_k.forEach(item => {
@@ -157,7 +171,7 @@ drop.addEventListener('drop', e => { if (e.dataTransfer.files.length) handleFile
 """
 
 
-def setup(checkpoint, classes, device_arg, zh_map_path="splits/class_to_zh.json"):
+def setup(checkpoint, classes, device_arg, zh_map_path="splits/class_to_zh.json", ood_thresholds_path=None):
     device = resolve_device(device_arg)
     ckpt = load_checkpoint(checkpoint, device)
     if "model_name" not in ckpt:
@@ -187,6 +201,17 @@ def setup(checkpoint, classes, device_arg, zh_map_path="splits/class_to_zh.json"
             crops.append(crop)
         crop_diseases[crop].append(disease if sep else full)
 
+    msp_threshold = None
+    energy_threshold = None
+    if ood_thresholds_path is None:
+        ood_thresholds_path = str(Path(checkpoint).parent.parent / "metrics" / "ood_thresholds.json")
+    ood_path = Path(ood_thresholds_path)
+    if ood_path.is_file():
+        with open(ood_path, encoding="utf-8") as f:
+            ood = json.load(f)
+        msp_threshold = ood.get("msp_threshold")
+        energy_threshold = ood.get("energy_threshold")
+
     STATE.update(
         model=model,
         transform=build_transforms(int(ckpt.get("input_size", 224)), train=False, augment=False),
@@ -197,6 +222,8 @@ def setup(checkpoint, classes, device_arg, zh_map_path="splits/class_to_zh.json"
         zh=zh,
         crops=crops,
         crop_diseases=crop_diseases,
+        msp_threshold=msp_threshold,
+        energy_threshold=energy_threshold,
     )
 
 
@@ -205,9 +232,11 @@ def predict_pil(image):
         tensor = STATE["transform"](image).unsqueeze(0).to(STATE["device"])
         with torch.no_grad():
             logits = STATE["model"](tensor)
-            probs = torch.softmax(logits, dim=1)[0]
+            probs = torch.softmax(logits, dim=1)
+        msp_val = float(probs.max(dim=1).values[0])
+        energy_val = float((-torch.logsumexp(logits, dim=1))[0])
         k = min(5, STATE["num_classes"])
-        scores, indices = probs.topk(k)
+        scores, indices = probs[0].topk(k)
     zh = STATE.get("zh") or {}
     top = []
     for s, i in zip(scores.tolist(), indices.tolist()):
@@ -218,9 +247,35 @@ def predict_pil(image):
             "label": int(i),
             "score": float(s),
         })
+
+    msp_th = STATE.get("msp_threshold")
+    energy_th = STATE.get("energy_threshold")
+    reasons = []
+    if msp_th is not None and msp_val < msp_th:
+        reasons.append("low_confidence")
+    if energy_th is not None and energy_val > energy_th:
+        reasons.append("out_of_distribution")
+
+    if reasons:
+        return {
+            "rejected": True,
+            "reasons": reasons,
+            "prediction": "无法可靠识别",
+            "prediction_en": None,
+            "confidence": msp_val,
+            "energy": energy_val,
+            "message": "这张图可能不属于支持的 14 种植物 / 38 类，或与训练分布差异较大。请人工确诊，不要据此用药或判断病害。",
+            "model_name": STATE["model_name"],
+            "top_k": [],
+            "note": "rejected by OOD gate (msp/energy)",
+        }
+
     return {
+        "rejected": False,
         "prediction": top[0]["class_name_zh"],
         "prediction_en": top[0]["class_name"],
+        "confidence": msp_val,
+        "energy": energy_val,
         "model_name": STATE["model_name"],
         "top_k": top,
         "note": "scores are softmax, not calibrated diagnostic probabilities",
@@ -289,6 +344,7 @@ def main():
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--classes", default="splits/class_to_idx.json")
     parser.add_argument("--zh-map", default="splits/class_to_zh.json")
+    parser.add_argument("--ood-thresholds", default=None)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
@@ -297,7 +353,7 @@ def main():
     checkpoint = Path(args.checkpoint)
     if not checkpoint.is_file():
         raise SystemExit(f"checkpoint not found: {checkpoint}")
-    setup(checkpoint, args.classes, args.device, args.zh_map)
+    setup(checkpoint, args.classes, args.device, args.zh_map, args.ood_thresholds)
 
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"LeafGuard demo running: http://{args.host}:{args.port}")
