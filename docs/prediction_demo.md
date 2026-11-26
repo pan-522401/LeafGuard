@@ -21,6 +21,21 @@ python scripts/serve_demo.py --checkpoint results/seed42/e3/checkpoints/resnet18
   ```
   生成 `<ckpt 上级>/metrics/ood_thresholds.json`，`serve_demo.py` 会自动读取（也可用 `--ood-thresholds` 指定）。
 
+## 0.1 132 类（方案B）Demo
+训练集为 PlantVillage + PlantWild 合并的 132 类。用对应 checkpoint 与 132 类 OOD 阈值：
+
+```powershell
+python scripts/serve_demo.py --checkpoint results/combined132/seed42/e3/checkpoints/resnet18_best.pt --port 8011
+```
+
+或直接双击项目根目录的 **`run_demo_132.bat`**（自动打开浏览器）。
+
+- 132 类 OOD 阈值需用合并验证集标定：
+  ```powershell
+  python scripts/calibrate_ood.py --checkpoint results/combined132/seed42/e3/checkpoints/resnet18_best.pt --split splits_combined/val.csv
+  ```
+- 支持约 34 种作物（含小麦、柑橘、香蕉、咖啡、水稻、烟草、黄瓜、茄子等），比 38 类版覆盖更广。
+
 ## 1. 单图预测
 
 ```powershell
