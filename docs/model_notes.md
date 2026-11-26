@@ -98,3 +98,28 @@ Accuracy、Macro-F1、Macro Recall、混淆矩阵、训练时长。
 ## 环境
 - Python 3.13，torch 2.14.1+cu130，torchvision 0.29.1+cu130
 - GPU：NVIDIA GeForce RTX 4060 Laptop GPU（8GB）
+
+## 方案 B：132 类（PlantVillage + PlantWild）+ PlantDoc 外部评估
+> 训练/验证用 `splits_combined/`（合并 132 类，**无内部 test**）；测试用 **PlantDoc 外部集**（2,561 张 / 28 类，映射到 132 类标签空间 `splits_combined/plantdoc_test.csv`）。3 个 seed（42/43/44），结果为均值±样本标准差。
+
+| 实验 | 模型 | 增强 | val Acc | val Macro-F1 | 外部(PlantDoc) Acc | 外部 Macro-F1 |
+|---|---|---|---|---|---|---|
+| E1 | SmallCNN | 否 | 0.8888 ± 0.0035 | 0.5028 ± 0.0074 | 0.1804 ± 0.0071 | 0.1962 ± 0.0064 |
+| E2 | ResNet18 冻结 | 否 | 0.8696 ± 0.0042 | 0.5434 ± 0.0049 | 0.1775 ± 0.0059 | 0.1978 ± 0.0035 |
+| E3 | ResNet18 微调 layer4 | 否 | 0.9228 ± 0.0024 | 0.6370 ± 0.0019 | 0.3223 ± 0.0115 | 0.3291 ± 0.0035 |
+| E4 | ResNet18 微调 layer4 | 是 | 0.9275 ± 0.0012 | 0.6603 ± 0.0092 | 0.3057 ± 0.0131 | 0.3084 ± 0.0133 |
+
+结论：
+- 微调（E3/E4）在内部与**外部真实场景**都显著优于从零/冻结（E1/E2）：外部 Acc 0.18 → 0.31~0.32，外部 Macro-F1 0.20 → 0.31~0.33。
+- 增强（E4）内部略高，外部与 E3 相当，无显著泛化增益。
+- 域差异巨大：内部 val Acc ~89–93% → PlantDoc 外部 Acc 仅 18–32%（132 类模型预测到 PlantWild 专有类也计为错误，是主要原因之一）。
+- 3 seed 标准差 ≤ 0.013，结论稳健。
+
+产物：`results/combined132/seed{42,43,44}/e{1..4}/`（checkpoints + 内部 `*_metrics.json` + `external_metrics.json` + `external_predictions.csv`）。
+
+复现（幂等、可断点续跑）：
+```powershell
+python train_132_orchestrator.py     # 或双击 run_training_132.bat
+```
+
+数据：PlantVillage（`data/plantvillage`）+ PlantWild v2（`data/plantwild`，CC BY-NC-ND 4.0）；PlantDoc 外部（`data/plantdoc`，CC BY 4.0）。
