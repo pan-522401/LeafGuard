@@ -34,6 +34,7 @@ STATE = {
     "crop_diseases": None,
     "msp_threshold": None,
     "energy_threshold": None,
+    "advice": None,
     "lock": threading.Lock(),
 }
 
@@ -66,6 +67,14 @@ INDEX_HTML = """<!doctype html>
   .bar-fill { height:100%; background: linear-gradient(90deg,#16a34a,#22c55e); width:0; transition: width .5s ease; }
   .note { color: var(--muted); font-size: 12px; margin-top: 18px; }
   .reject { background: rgba(245,158,11,.12); border:1px solid #f59e0b; color:#fbbf24; border-radius:10px; padding:12px 14px; font-size:14px; line-height:1.6; margin:8px 0; }
+  .advice-btn { margin-top:14px; background:#16a34a; color:#fff; border:none; border-radius:10px; padding:10px 16px; font-size:14px; cursor:pointer; }
+  .advice-btn:hover { background:#15803d; }
+  .advice { margin-top:12px; background:#0b1220; border:1px solid #334155; border-radius:10px; padding:14px; font-size:14px; line-height:1.7; display:none; }
+  .advice .a-sum { color:var(--text); margin-bottom:6px; }
+  .advice .a-sec { color:var(--accent); font-weight:600; margin-top:8px; }
+  .advice ul { margin:4px 0 4px 18px; padding:0; }
+  .advice li { margin:2px 0; }
+  .advice .a-src { color:var(--muted); font-size:12px; margin-top:10px; }
   .status { color: var(--muted); font-size: 13px; margin-top: 12px; min-height: 18px; }
   .supported { background: var(--card); border-radius: 14px; padding: 16px 20px; margin-bottom: 18px; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
   .sup-title { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
@@ -82,7 +91,7 @@ INDEX_HTML = """<!doctype html>
   <h1>🌿 LeafGuard · 叶片病害识别</h1>
   <div class="sub">上传一张植物叶片照片，识别它是否患病及可能的病害类别（本页为本地演示，结果仅供参考）。</div>
   <div class="supported">
-    <div class="sup-title">✅ 能识别的植物（{{CROPS_N}} 种）· 共 38 类（含健康与病害）</div>
+    <div class="sup-title">✅ 能识别的植物（{{CROPS_N}} 种）· 共 {{NUM_CLASSES}} 类（含健康与病害）</div>
     <div class="chips">{{CROPS}}</div>
     <details class="fulllist"><summary>查看每种植物能识别哪些病害/健康类别</summary>{{DISEASE_GROUPS}}</details>
   </div>
@@ -98,6 +107,8 @@ INDEX_HTML = """<!doctype html>
       <div class="pred">预测：<span class="tag" id="predName">-</span> <span class="en" id="predEn"></span></div>
       <div class="reject" id="rejected" style="display:none"></div>
       <div id="bars"></div>
+      <button class="advice-btn" id="adviceBtn" style="display:none">查看防治建议</button>
+      <div class="advice" id="advice"></div>
       <div class="note">分数为 softmax 置信度，不代表校准后的诊断概率；本项目为课程/研究演示，不能作为真实农业诊断依据。</div>
     </div>
   </div>
@@ -110,6 +121,11 @@ const statusEl = document.getElementById('status');
 const resultEl = document.getElementById('result');
 const predName = document.getElementById('predName');
 const bars = document.getElementById('bars');
+const adviceBtn = document.getElementById('adviceBtn');
+const adviceBox = document.getElementById('advice');
+adviceBtn.addEventListener('click', function () {
+  adviceBox.style.display = (adviceBox.style.display === 'block') ? 'none' : 'block';
+});
 
 function handleFile(file) {
   if (!file) return;
@@ -142,6 +158,9 @@ function render(data) {
     bars.innerHTML = '';
     rej.textContent = data.message || '识别不确定，建议人工确诊。';
     rej.style.display = 'block';
+    adviceBtn.style.display = 'none';
+    adviceBox.style.display = 'none';
+    adviceBox.innerHTML = '';
     return;
   }
   rej.style.display = 'none';
@@ -159,6 +178,27 @@ function render(data) {
     bars.appendChild(row);
     requestAnimationFrame(() => { row.querySelector('.bar-fill').style.width = pct + '%'; });
   });
+  renderAdvice(data.advice);
+}
+
+function renderAdvice(a) {
+  if (!a) { adviceBtn.style.display = 'none'; adviceBox.style.display = 'none'; adviceBox.innerHTML = ''; return; }
+  var html = '';
+  if (a['摘要']) { html += '<div class="a-sum">' + a['摘要'] + '</div>'; }
+  if (a['防治措施'] && a['防治措施'].length) {
+    html += '<div class="a-sec">防治措施</div><ul>';
+    a['防治措施'].forEach(function (x) { html += '<li>' + x + '</li>'; });
+    html += '</ul>';
+  }
+  if (a['预防'] && a['预防'].length) {
+    html += '<div class="a-sec">预防</div><ul>';
+    a['预防'].forEach(function (x) { html += '<li>' + x + '</li>'; });
+    html += '</ul>';
+  }
+  if (a['来源']) { html += '<div class="a-src">来源：' + a['来源'] + '</div>'; }
+  adviceBox.innerHTML = html;
+  adviceBox.style.display = 'none';
+  adviceBtn.style.display = 'inline-block';
 }
 
 fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
@@ -171,7 +211,7 @@ drop.addEventListener('drop', e => { if (e.dataTransfer.files.length) handleFile
 """
 
 
-def setup(checkpoint, classes, device_arg, zh_map_path="splits/class_to_zh.json", ood_thresholds_path=None):
+def setup(checkpoint, classes, device_arg, zh_map_path="splits/class_to_zh.json", ood_thresholds_path=None, advice_map_path="assets/disease_advice_zh.json"):
     device = resolve_device(device_arg)
     ckpt = load_checkpoint(checkpoint, device)
     if "model_name" not in ckpt:
@@ -212,6 +252,12 @@ def setup(checkpoint, classes, device_arg, zh_map_path="splits/class_to_zh.json"
         msp_threshold = ood.get("msp_threshold")
         energy_threshold = ood.get("energy_threshold")
 
+    advice = {}
+    advice_path = Path(advice_map_path)
+    if advice_path.is_file():
+        with open(advice_path, encoding="utf-8") as f:
+            advice = json.load(f)
+
     STATE.update(
         model=model,
         transform=build_transforms(int(ckpt.get("input_size", 224)), train=False, augment=False),
@@ -224,6 +270,7 @@ def setup(checkpoint, classes, device_arg, zh_map_path="splits/class_to_zh.json"
         crop_diseases=crop_diseases,
         msp_threshold=msp_threshold,
         energy_threshold=energy_threshold,
+        advice=advice,
     )
 
 
@@ -264,20 +311,23 @@ def predict_pil(image):
             "prediction_en": None,
             "confidence": msp_val,
             "energy": energy_val,
-            "message": "这张图可能不属于支持的 14 种植物 / 38 类，或与训练分布差异较大。请人工确诊，不要据此用药或判断病害。",
+            "message": "这张图可能不属于系统支持的植物/病害范围，或与训练分布差异较大。请人工确诊，不要据此用药或判断病害。",
             "model_name": STATE["model_name"],
             "top_k": [],
             "note": "rejected by OOD gate (msp/energy)",
         }
 
+    advice_map = STATE.get("advice") or {}
+    pred_en = top[0]["class_name"]
     return {
         "rejected": False,
         "prediction": top[0]["class_name_zh"],
-        "prediction_en": top[0]["class_name"],
+        "prediction_en": pred_en,
         "confidence": msp_val,
         "energy": energy_val,
         "model_name": STATE["model_name"],
         "top_k": top,
+        "advice": advice_map.get(pred_en),
         "note": "scores are softmax, not calibrated diagnostic probabilities",
     }
 
@@ -307,6 +357,7 @@ class Handler(BaseHTTPRequestHandler):
                 INDEX_HTML.replace("{{CROPS_N}}", str(len(crops)))
                 .replace("{{CROPS}}", chips)
                 .replace("{{DISEASE_GROUPS}}", groups)
+                .replace("{{NUM_CLASSES}}", str(STATE.get("num_classes") or len(crops)))
             )
             self._send(200, page, "text/html")
         elif self.path == "/health":
@@ -345,6 +396,7 @@ def main():
     parser.add_argument("--classes", default="splits/class_to_idx.json")
     parser.add_argument("--zh-map", default="splits/class_to_zh.json")
     parser.add_argument("--ood-thresholds", default=None)
+    parser.add_argument("--advice-map", default="assets/disease_advice_zh.json")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
@@ -353,7 +405,7 @@ def main():
     checkpoint = Path(args.checkpoint)
     if not checkpoint.is_file():
         raise SystemExit(f"checkpoint not found: {checkpoint}")
-    setup(checkpoint, args.classes, args.device, args.zh_map, args.ood_thresholds)
+    setup(checkpoint, args.classes, args.device, args.zh_map, args.ood_thresholds, args.advice_map)
 
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"LeafGuard demo running: http://{args.host}:{args.port}")

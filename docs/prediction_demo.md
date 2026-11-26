@@ -20,6 +20,8 @@ python scripts/serve_demo.py --checkpoint results/seed42/e3/checkpoints/resnet18
   python scripts/calibrate_ood.py --checkpoint results/seed42/e3/checkpoints/resnet18_best.pt
   ```
   生成 `<ckpt 上级>/metrics/ood_thresholds.json`，`serve_demo.py` 会自动读取（也可用 `--ood-thresholds` 指定）。
+- **防治建议**：识别（非拒识）后出现 **「查看防治建议」按钮**，点开显示该病害的参考防治措施/预防与来源（`assets/disease_advice_zh.json`）；健康类显示养护建议；被拒识时不显示建议。建议仅供学习参考，具体以当地农技/植保与登记药剂标签为准。
+- 命令行 `scripts/predict.py` 的 JSON 输出也包含 `advice` 字段。
 
 ## 0.1 132 类（方案B）Demo
 训练集为 PlantVillage + PlantWild 合并的 132 类。用对应 checkpoint 与 132 类 OOD 阈值：

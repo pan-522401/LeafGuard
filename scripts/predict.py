@@ -124,6 +124,12 @@ def main():
         for score, idx in zip(scores.tolist(), indices.tolist())
     ]
 
+    advice_map = {}
+    advice_path = PROJECT_ROOT / "assets" / "disease_advice_zh.json"
+    if advice_path.is_file():
+        with open(advice_path, encoding="utf-8") as f:
+            advice_map = json.load(f)
+
     result = {
         "image": str(image_path),
         "checkpoint": str(checkpoint_path),
@@ -131,6 +137,7 @@ def main():
         "class_mapping_source": mapping_source,
         "prediction": predictions[0]["class_name"],
         "top_k": predictions,
+        "advice": advice_map.get(predictions[0]["class_name"]),
         "note": "scores are softmax values, not calibrated diagnostic probabilities",
     }
     print(json.dumps(result, ensure_ascii=False, indent=2))
