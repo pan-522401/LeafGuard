@@ -101,3 +101,20 @@
 ## 12. 后续维护
 - 新增参考项目时更新第 4、6 节；新增论文时更新第 11.1 节。
 - 调研日期、检索词一并记录，保证可复现。
+
+## 13. 国内相关工作（举例，Crossref 已核实）
+| 论文 | 年 | 出处 | DOI | 备注 |
+|---|---|---|---|---|
+| Lu, Yi, Zeng, Liu. Identification of rice diseases using deep convolutional neural networks | 2017 | Neurocomputing | 10.1016/j.neucom.2017.06.023 | 国内团队，水稻病害 CNN |
+| Ma, Du, Zheng, et al. A recognition method for cucumber diseases using leaf symptom images based on deep convolutional neural network | 2018 | Computers and Electronics in Agriculture | 10.1016/j.compag.2018.08.048 | 国内团队，黄瓜病害 |
+| Liu, Zhang, He, et al. Identification of Apple Leaf Diseases Based on Deep Convolutional Neural Networks | 2018 | Symmetry | 10.3390/sym10010011 | 国内团队，苹果叶病 |
+
+> 用于体现"国内相关工作"；作者名、卷期页以论文原文为准，使用前核实。
+
+## 14. 选型理由：为什么选择 ResNet18 + 迁移学习
+- **任务特性**：132 类细粒度图像分类，同作物内病害形态相近、易混，需要较强表征；从零训练的小型 CNN 在有限数据/算力下表征不足。
+- **数据特性**：PlantVillage 干净背景 + PlantWild 真实场景并存、类别不均衡；ImageNet 预训练提供通用纹理/形状特征，利于小样本与跨域。
+- **工程可行性**：ResNet18 轻量（~11M 参数），8GB 显存笔记本即可训练/微调；torchvision 直接可用、复现性好。
+- **可对照性**：以 E1 从零 CNN 为基线、E2 冻结、E3 微调、E4 增强，系统回答"是否用预训练、冻结还是微调、增强是否有用"。
+- **文献依据**：Mohanty 2016（预训练强基线）、Too 2019（微调对比）、He 2016（ResNet），以及国内 Lu 2017 / Ma 2018 / Liu 2018 证实在作物病害识别上的有效性。
+- **实验对应**：结果显示微调（E3/E4）在内部与真实场景外部均最佳，支持该选型。
