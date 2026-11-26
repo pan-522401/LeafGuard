@@ -407,10 +407,20 @@ def main():
         raise SystemExit(f"checkpoint not found: {checkpoint}")
     setup(checkpoint, args.classes, args.device, args.zh_map, args.ood_thresholds, args.advice_map)
 
-    server = ThreadingHTTPServer((args.host, args.port), Handler)
-    print(f"LeafGuard demo running: http://{args.host}:{args.port}")
+    server = None
+    port = args.port
+    for candidate in range(args.port, args.port + 10):
+        try:
+            server = ThreadingHTTPServer((args.host, candidate), Handler)
+            port = candidate
+            break
+        except OSError as exc:
+            print(f"port {candidate} unavailable ({exc}); trying next...")
+    if server is None:
+        raise SystemExit(f"could not bind any port in {args.port}..{args.port + 9}")
+    print(f"LeafGuard demo running: http://{args.host}:{port}")
     print(f"model: {STATE['model_name']}  device: {STATE['device']}  classes: {STATE['num_classes']}")
-    print("Press Ctrl+C to stop.")
+    print("Open the URL above in your browser. Press Ctrl+C to stop.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
